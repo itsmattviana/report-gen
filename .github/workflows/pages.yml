@@ -3,11 +3,10 @@ name: Deploy Reports to GitHub Pages
 on:
   workflow_dispatch: {}
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -30,22 +29,35 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt markdown
+          pip install -r requirements.txt || true
+          pip install markdown reportlab
 
-      - name: Inject OPENAI_API_KEY
+      - name: Check OPENAI secret present
+        run: |
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "::error::Secret OPENAI_API_KEY ausente em Settings → Secrets → Actions."
+            exit 1
+          fi
+
+      - name: Create .env from secret
         run: echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
 
       - name: Generate reports (MD + README + PDF)
         run: |
+          set -e
           python src/report_hybrid.py
           python src/export_readme.py
           python src/export_pdf.py
+
+      - name: Ensure outputs/hybrid.md exists (fallback)
+        run: |
+          test -f outputs/hybrid.md || { echo "# Report" > outputs/hybrid.md; echo "Fallback: geração falhou."; }
 
       - name: Build static site (public/)
         run: |
           mkdir -p public
           python -c "import markdown, pathlib; md=pathlib.Path('outputs/hybrid.md').read_text(encoding='utf-8'); html=markdown.markdown(md, extensions=['tables']); pathlib.Path('public/index.html').write_text('<!doctype html><meta charset=utf-8><title>Relatório</title><a href=./report.pdf target=_blank>Baixar PDF</a><hr>'+html, encoding='utf-8')"
-          cp outputs/report.pdf public/report.pdf || true
+          cp outputs/report.pdf public/report.pdf || echo 'sem PDF'
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
