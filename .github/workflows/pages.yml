@@ -43,6 +43,9 @@ jobs:
       - name: Create .env from secret
         run: echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
 
+      - name: OpenAI smoke test
+        run: python src/smoke_openai.py
+
       - name: Generate reports (MD and PDF)
         run: |
           set -e
