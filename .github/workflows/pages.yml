@@ -3,7 +3,8 @@ name: Deploy Reports to GitHub Pages
 on:
   workflow_dispatch: {}
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -11,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:
@@ -42,28 +43,35 @@ jobs:
       - name: Create .env from secret
         run: echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
 
-      - name: Generate reports (MD + README + PDF)
+      - name: Generate reports (MD and PDF)
         run: |
           set -e
           python src/report_hybrid.py
           python src/export_readme.py
           python src/export_pdf.py
 
-	- name: Ensure outputs/hybrid.md exists (fallback)
+      - name: Ensure outputs/hybrid.md exists (fallback)
         run: |
           mkdir -p outputs
           if [ ! -f outputs/hybrid.md ]; then
             printf '# Customer Feedback Report (fallback)\n\nGeração via LLM falhou no CI. Este arquivo garante a publicação do site.\n' > outputs/hybrid.md
           fi
-          echo 'Conteúdo de outputs/:'
-          ls -la outputs
-
+          ls -la outputs || true
 
       - name: Build static site (public/)
         run: |
           mkdir -p public
-          python -c "import markdown, pathlib; md=pathlib.Path('outputs/hybrid.md').read_text(encoding='utf-8'); html=markdown.markdown(md, extensions=['tables']); pathlib.Path('public/index.html').write_text('<!doctype html><meta charset=utf-8><title>Relatório</title><a href=./report.pdf target=_blank>Baixar PDF</a><hr>'+html, encoding='utf-8')"
-          cp outputs/report.pdf public/report.pdf || echo 'sem PDF'
+          python - <<'PY'
+import markdown, pathlib, sys
+p = pathlib.Path("outputs/hybrid.md")
+if not p.exists():
+    sys.exit("outputs/hybrid.md não encontrado")
+md = p.read_text(encoding="utf-8")
+html = markdown.markdown(md, extensions=["tables"])
+template = f"<!doctype html><meta charset='utf-8'><title>Relatório</title><a href='./report.pdf' target='_blank'>Baixar PDF</a><hr>{html}"
+pathlib.Path("public/index.html").write_text(template, encoding="utf-8")
+PY
+          [ -f outputs/report.pdf ] && cp outputs/report.pdf public/report.pdf || echo "sem PDF"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
