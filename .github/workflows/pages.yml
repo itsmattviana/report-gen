@@ -61,17 +61,8 @@ jobs:
       - name: Build static site (public/)
         run: |
           mkdir -p public
-          python - <<'PY'
-import markdown, pathlib, sys
-p = pathlib.Path("outputs/hybrid.md")
-if not p.exists():
-    sys.exit("outputs/hybrid.md não encontrado")
-md = p.read_text(encoding="utf-8")
-html = markdown.markdown(md, extensions=["tables"])
-template = f"<!doctype html><meta charset='utf-8'><title>Relatório</title><a href='./report.pdf' target='_blank'>Baixar PDF</a><hr>{html}"
-pathlib.Path("public/index.html").write_text(template, encoding="utf-8")
-PY
-          [ -f outputs/report.pdf ] && cp outputs/report.pdf public/report.pdf || echo "sem PDF"
+          python -c "import markdown, pathlib; md=pathlib.Path('outputs/hybrid.md').read_text(encoding='utf-8'); html=markdown.markdown(md, extensions=['tables']); pathlib.Path('public/index.html').write_text('<!doctype html><meta charset=\"utf-8\"><title>Relatório</title><a href=\"./report.pdf\" target=\"_blank\">Baixar PDF</a><hr>'+html, encoding='utf-8')"
+          [ -f outputs/report.pdf ] && cp outputs/report.pdf public/report.pdf || echo 'sem PDF'
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
