@@ -122,19 +122,42 @@ Metrics and items (DO NOT CHANGE THE NUMBERS OR TABLE):
 {insights_block}
 """
 
-    # --- 8) Chamada ao modelo (apenas texto) ---
-    resp = client.responses.create(
-        model=MODEL_NAME,
-        input=prompt
-    )
-    report_md = resp.output_text
+        # --- 8) Chamada ao modelo com fallback ---
+    def generate_text_with_fallback():
+        try:
+            resp = client.responses.create(
+                model=MODEL_NAME,
+                input=prompt
+            )
+            return resp.output_text
+        except Exception as e:
+            print(f"[AVISO] Falha ao chamar OpenAI: {e}")
+            # Fallback: relatório mínimo com as métricas já calculadas em Python
+            fallback = [
+                "# Customer Feedback Report (fallback)",
+                "Relatório gerado sem LLM devido a erro na API. Números e issues vêm do Python.",
+                "## Metrics",
+                table_md,
+                "## Top 3 Issues",
+            ]
+            if top3_list:
+                fallback.extend([f"- {item}" for item in top3_list])
+            else:
+                fallback.append("- (Sem issues recorrentes)")
+            fallback.extend([
+                "## Recommendations",
+                "- Revisar políticas de frete e SLA de entrega.",
+                "- Treinar equipe de atendimento para reduzir tempo de resposta.",
+                "## TL;DR",
+                "Relatório gerado em modo de contingência; números conferidos no Python."
+            ])
+            return "\n".join(fallback)
+
+    report_md = generate_text_with_fallback()
 
     # --- 9) Salvar saída ---
     out = Path("outputs/hybrid.md")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report_md, encoding="utf-8")
     print(f"[OK] Relatório híbrido salvo em {out.resolve()}")
-
-if __name__ == "__main__":
-    main()
 
