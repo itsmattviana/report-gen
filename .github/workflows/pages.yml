@@ -49,9 +49,15 @@ jobs:
           python src/export_readme.py
           python src/export_pdf.py
 
-      - name: Ensure outputs/hybrid.md exists (fallback)
+	- name: Ensure outputs/hybrid.md exists (fallback)
         run: |
-          test -f outputs/hybrid.md || { echo "# Report" > outputs/hybrid.md; echo "Fallback: geração falhou."; }
+          mkdir -p outputs
+          if [ ! -f outputs/hybrid.md ]; then
+            printf '# Customer Feedback Report (fallback)\n\nGeração via LLM falhou no CI. Este arquivo garante a publicação do site.\n' > outputs/hybrid.md
+          fi
+          echo 'Conteúdo de outputs/:'
+          ls -la outputs
+
 
       - name: Build static site (public/)
         run: |
